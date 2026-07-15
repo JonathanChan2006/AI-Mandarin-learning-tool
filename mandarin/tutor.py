@@ -160,8 +160,9 @@ class Tutor:
     """Holds the two API passes for one chat session."""
 
     def __init__(self, weak_items: list[str] | None = None, active_words: list[str] | None = None,
-                 level: str = DEFAULT_LEVEL):
-        self.client = anthropic.Anthropic()
+                 level: str = DEFAULT_LEVEL, api_key: str | None = None):
+        # api_key=None lets the SDK fall back to the ANTHROPIC_API_KEY env var.
+        self.client = anthropic.Anthropic(api_key=api_key or None)
         self.system = build_tutor_system(weak_items or [], active_words or [], level)
 
     def reply(self, history: list[dict]) -> str:
