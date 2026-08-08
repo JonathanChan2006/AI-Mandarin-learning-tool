@@ -1,4 +1,4 @@
-# AI Mandarin learning tool
+# AI Mandarin tutor
 
 A desktop app (with a command-line version too) for learning Mandarin. It combines
 spaced-repetition flashcards with an LLM chat tutor, and keeps one shared log of
