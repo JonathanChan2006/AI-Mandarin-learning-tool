@@ -1,0 +1,63 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans:
+    system-ui, -apple-system, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei',
+    'Noto Sans CJK SC', sans-serif;
+  /* Carried over from the Flet app's palette */
+  --color-surface: #1c1b1f;
+  --color-surface-raised: #2a292e;
+  --color-ink: #e6e1e5;
+  --color-ink-muted: #bdbdbd;
+  --color-ink-faint: #9e9e9e;
+  --color-primary: #8ab4f8;
+  --color-pinyin: #66bb6a;
+  --color-accent: #ffd54f;
+  --color-danger: #e57373;
+  --color-bubble-user: #455a64;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+dialog::backdrop {
+  background: rgb(0 0 0 / 0.6);
+}
+
+/* Pinyin over the tutor's messages. Hidden pinyin keeps its space so hovering never shifts lines. */
+.pinyin-text {
+  line-height: 1.9;
+}
+
+.pinyin-text ruby {
+  ruby-position: over;
+  /* keep a word and its pinyin on one line */
+  white-space: nowrap;
+}
+
+.pinyin-text rt {
+  font-size: 0.55em;
+  padding: 0 0.15em;
+  color: var(--color-pinyin);
+  user-select: none;
+}
+
+.pinyin-text .pinyin-hidden rt {
+  visibility: hidden;
+}
+
+.pinyin-text .pinyin-hidden:hover rt {
+  visibility: visible;
+}

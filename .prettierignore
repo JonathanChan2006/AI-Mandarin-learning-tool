@@ -1,0 +1,12 @@
+out
+dist
+node_modules
+legacy
+mandarin
+data
+storage
+*.py
+LICENSE.md
+tsconfig.json
+tsconfig.*.json
+package-lock.json

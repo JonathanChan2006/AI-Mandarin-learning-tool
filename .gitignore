@@ -1,6 +1,23 @@
+# Python (legacy app)
 .venv/
 __pycache__/
 *.pyc
-mandarin.db
 .env
+
+# Data that never belongs in the repo
+mandarin.db
 *.apkg
+storage/
+
+# Node / Electron
+node_modules/
+out/
+dist/
+.eslintcache
+*.log*
+test-results/
+playwright-report/
+coverage/
+
+# OS
+.DS_Store

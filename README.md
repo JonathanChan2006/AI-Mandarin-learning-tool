@@ -1,10 +1,6 @@
 # AI Mandarin tutor
 
-A desktop app (with a command-line version too) for learning Mandarin. It combines
-spaced-repetition flashcards with an LLM chat tutor, and keeps one shared log of
-every mistake: words you struggle with in flashcards get worked into the
-conversation with the tutor, and mistakes you make while chatting are brought up
-more often in your reviews. Runs on Mac and Windows.
+A desktop app (with a command-line version too) for learning Mandarin. It combines spaced-repetition flashcards with an LLM chat tutor, and keeps one shared log of every mistake: words you struggle with in flashcards get worked into the conversation with the tutor, and mistakes you make while chatting are brought up more often in your reviews. Runs on Mac and Windows.
 
 ## Features
 
