@@ -1,4 +1,4 @@
-# AI-mandarin-tutor
+# AI Mandarin Tutor
 
 I've been using a lot of Anki flashcards to learn Mandarin vocab and I wanted to experiment with using AI as a "tutor" for conversations. To combine the two I've built this desktop app for my own use. It runs on both Mac and Windows.
 
