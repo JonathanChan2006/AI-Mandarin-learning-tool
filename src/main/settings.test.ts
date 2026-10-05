@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, writeFileSync } from 'fs'
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -69,5 +69,29 @@ describe('settings', () => {
     const snapshot = settings.getSettings('/data/mandarin.db')
     expect(snapshot).toMatchObject({ hasKey: true, source: 'stored', dbPath: '/data/mandarin.db' })
     expect(JSON.stringify(snapshot)).not.toContain('secret-value')
+  })
+
+  it('imports the key from the old Python file and only deletes it when asked', () => {
+    const legacy = join(state.dir, 'old-python-key.json')
+    writeFileSync(legacy, JSON.stringify({ api_key: '  old-python-key  ' }))
+    expect(settings.legacyKeyFileExists(legacy)).toBe(true)
+
+    settings.importLegacyKey(false, legacy)
+    expect(settings.getApiKey()).toBe('old-python-key')
+    expect(existsSync(legacy)).toBe(true)
+
+    settings.importLegacyKey(true, legacy)
+    expect(existsSync(legacy)).toBe(false)
+    expect(settings.legacyKeyFileExists(legacy)).toBe(false)
+  })
+
+  it('refuses an old file with no key in it', () => {
+    const legacy = join(state.dir, 'old-python-key.json')
+    writeFileSync(legacy, JSON.stringify({ something: 'else' }))
+    expect(() => settings.importLegacyKey(true, legacy)).toThrowError(/No API key found/)
+    expect(existsSync(legacy)).toBe(true)
+    expect(() => settings.importLegacyKey(false, join(state.dir, 'missing.json'))).toThrowError(
+      /No API key found/
+    )
   })
 })

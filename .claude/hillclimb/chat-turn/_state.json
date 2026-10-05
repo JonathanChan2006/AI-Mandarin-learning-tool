@@ -1,0 +1,72 @@
+{
+  "reps": 1,
+  "goal": {
+    "target": "graded_right",
+    "direction": "higher",
+    "hold": [
+      "no_correction",
+      "total_s",
+      "cost_usd"
+    ]
+  },
+  "harness_paths": [
+    "evals/chat-turn/harness.ts",
+    "evals/chat-turn/grade.ts",
+    "evals/chat-turn/cases.json",
+    "src/main/core/chat.ts",
+    "src/main/core/tutor.ts"
+  ],
+  "metrics": [
+    {
+      "id": "graded_right",
+      "kind": "binary",
+      "label": "Graded right"
+    },
+    {
+      "id": "no_false_flag",
+      "kind": "binary",
+      "label": "No extra flags"
+    },
+    {
+      "id": "links_card",
+      "kind": "binary",
+      "label": "Links card"
+    },
+    {
+      "id": "no_correction",
+      "kind": "binary",
+      "label": "Tutor in role"
+    },
+    {
+      "id": "ends_question",
+      "kind": "binary",
+      "label": "Ends question"
+    }
+  ],
+  "perf_fields": [
+    {
+      "id": "first_token_s",
+      "label": "First word",
+      "unit": "s"
+    },
+    {
+      "id": "total_s",
+      "label": "Corrections",
+      "unit": "s"
+    },
+    {
+      "id": "api_calls",
+      "label": "API calls"
+    },
+    {
+      "id": "reply_sentences",
+      "label": "Sentences"
+    },
+    {
+      "id": "cost_usd",
+      "label": "Cost",
+      "unit": "$"
+    }
+  ],
+  "harness_sha": "cca53acb354801253603d61cb90fedefb2e360c1d6161233c6530f593e61be98"
+}

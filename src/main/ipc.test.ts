@@ -13,7 +13,12 @@ const ctx = { sender: {} as WebContents }
 const deps = (): Parameters<typeof createHandlers>[0] => ({
   db: openDatabase(':memory:'),
   dbPath: ':memory:',
-  chat: {} as ChatService
+  chat: {} as ChatService,
+  pickFile: async () => null,
+  typing: {
+    info: async () => ({ status: 'missing' as const, platform: 'mac' as const }),
+    openSettings: async () => undefined
+  }
 })
 const quiet = { error: vi.fn(), warn: vi.fn() }
 
@@ -62,6 +67,33 @@ describe('invoke', () => {
     const log = { error: vi.fn(), warn: vi.fn() }
     await invoke('stats:get', handlers, undefined, ctx, { validateOutput: true, log })
     expect(log.warn).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('legacy:import handler', () => {
+  it('returns null when the file dialog is cancelled', async () => {
+    const result = await invoke('legacy:import', createHandlers(deps()), {}, ctx, { log: quiet })
+    expect(result).toEqual({ ok: true, value: null })
+  })
+
+  it("refuses the app's own database", async () => {
+    const handlers = createHandlers({
+      ...deps(),
+      dbPath: '/data/mandarin.db',
+      pickFile: async () => '/data/mandarin.db'
+    })
+    const result = await invoke('legacy:import', handlers, { replace: true }, ctx, { log: quiet })
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error.code).toBe('VALIDATION')
+  })
+})
+
+describe('typing handlers', () => {
+  it('reports the keyboard status from the injected checker', async () => {
+    const result = await invoke('typing:status', createHandlers(deps()), undefined, ctx, {
+      log: quiet
+    })
+    expect(result).toEqual({ ok: true, value: { status: 'missing', platform: 'mac' } })
   })
 })
 

@@ -15,7 +15,8 @@ export const keys = {
   weak: (limit: number) => ['weak', limit] as const,
   mistakes: (limit: number, offset: number) => ['mistakes', limit, offset] as const,
   settings: ['settings'] as const,
-  knownWords: ['vocab', 'known'] as const
+  knownWords: ['vocab', 'known'] as const,
+  typing: ['typing'] as const
 }
 
 /** Anything that changes cards, reviews or mistakes invalidates these. */
@@ -92,4 +93,58 @@ export function useLoadSeed(): UseMutationResult<Output<'seed:load'>, Error, voi
     mutationFn: () => call('seed:load'),
     onSuccess: () => invalidateStudyData(client)
   })
+}
+
+export function useSaveKey(): UseMutationResult<Output<'settings:setKey'>, Error, string> {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (key: string) => call('settings:setKey', { key }),
+    onSuccess: () => client.invalidateQueries({ queryKey: keys.settings })
+  })
+}
+
+export function useClearKey(): UseMutationResult<Output<'settings:clearKey'>, Error, void> {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: () => call('settings:clearKey'),
+    onSuccess: () => client.invalidateQueries({ queryKey: keys.settings })
+  })
+}
+
+export function useImportLegacyKey(): UseMutationResult<
+  Output<'settings:importLegacyKey'>,
+  Error,
+  boolean
+> {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (deleteFile: boolean) => call('settings:importLegacyKey', { deleteFile }),
+    onSuccess: () => client.invalidateQueries({ queryKey: keys.settings })
+  })
+}
+
+export function useLegacyImport(): UseMutationResult<Output<'legacy:import'>, Error, boolean> {
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: (replace: boolean) => call('legacy:import', { replace }),
+    onSuccess: () => invalidateStudyData(client)
+  })
+}
+
+/** Re-checked whenever the window regains focus, so it updates after a trip to system settings. */
+export function useTypingStatus(): UseQueryResult<Output<'typing:status'>> {
+  return useQuery({
+    queryKey: keys.typing,
+    queryFn: () => call('typing:status'),
+    refetchOnWindowFocus: true,
+    staleTime: 0
+  })
+}
+
+export function useOpenKeyboardSettings(): UseMutationResult<
+  Output<'typing:openSettings'>,
+  Error,
+  void
+> {
+  return useMutation({ mutationFn: () => call('typing:openSettings') })
 }

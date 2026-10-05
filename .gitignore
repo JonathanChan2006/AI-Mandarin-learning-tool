@@ -1,4 +1,4 @@
-# Python (legacy app)
+# Python (legacy app, now under legacy/)
 .venv/
 __pycache__/
 *.pyc
@@ -21,3 +21,6 @@ coverage/
 
 # OS
 .DS_Store
+
+# Eval runner build output
+evals/**/.build/

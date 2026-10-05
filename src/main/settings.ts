@@ -85,15 +85,15 @@ export function clearApiKey(): void {
   writeSecrets(secrets)
 }
 
-export function legacyKeyFileExists(): boolean {
-  return existsSync(legacyKeyPath())
+export function legacyKeyFileExists(path: string = legacyKeyPath()): boolean {
+  return existsSync(path)
 }
 
 /** Move the key out of the Python app's plaintext file. */
-export function importLegacyKey(deleteFile: boolean): void {
+export function importLegacyKey(deleteFile: boolean, path: string = legacyKeyPath()): void {
   let key: string | undefined
   try {
-    const parsed: unknown = JSON.parse(readFileSync(legacyKeyPath(), 'utf8'))
+    const parsed: unknown = JSON.parse(readFileSync(path, 'utf8'))
     if (
       parsed &&
       typeof parsed === 'object' &&
@@ -104,9 +104,9 @@ export function importLegacyKey(deleteFile: boolean): void {
   } catch {
     key = undefined
   }
-  if (!key) throw new AppError('NOT_FOUND', `No API key found in ${legacyKeyPath()}.`)
+  if (!key) throw new AppError('NOT_FOUND', `No API key found in ${path}.`)
   setApiKey(key)
-  if (deleteFile) unlinkSync(legacyKeyPath())
+  if (deleteFile) unlinkSync(path)
 }
 
 export interface SettingsSnapshot {

@@ -18,6 +18,8 @@ export function useReviewShortcuts({ onReveal, onGrade, enabled }: Handlers): vo
     if (!enabled) return
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.repeat || event.metaKey || event.ctrlKey || event.altKey) return
+      // 229 is what browsers report while an input method is composing.
+      if (event.isComposing || event.keyCode === 229) return
       if (inEditableElement(event.target)) return
       if (event.key === ' ' || event.key === 'Enter') {
         event.preventDefault()

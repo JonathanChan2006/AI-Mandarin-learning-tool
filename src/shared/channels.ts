@@ -20,7 +20,9 @@ export const CHANNELS = [
   'settings:setKey',
   'settings:clearKey',
   'settings:importLegacyKey',
-  'legacy:import'
+  'legacy:import',
+  'typing:status',
+  'typing:openSettings'
 ] as const
 
 export type Channel = (typeof CHANNELS)[number]

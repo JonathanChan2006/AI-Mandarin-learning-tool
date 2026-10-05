@@ -14,10 +14,9 @@ export default defineConfig(
       'build/**',
       'resources/**',
       'legacy/**',
+      'evals/**/*.mjs',
+      'evals/**/.build/**',
       '.venv/**',
-      'storage/**',
-      'mandarin/**',
-      'data/**',
       'test-results/**',
       'playwright-report/**'
     ]

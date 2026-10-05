@@ -7,7 +7,9 @@ import {
   buildTutorSystem,
   describeWord,
   EMPTY_ANALYSIS,
-  Tutor
+  REPORT_TOOL,
+  Tutor,
+  type CallRecord
 } from './tutor'
 import { AppError } from '@shared/errors'
 import type { Level } from '@shared/types'
@@ -46,6 +48,8 @@ describe('AnalysisSchema', () => {
 interface FakeStreamOptions {
   tokens: string[]
   stopReason?: string
+  /** Extra content blocks after the text, e.g. a tool call. */
+  blocks?: unknown[]
 }
 
 function fakeClient(
@@ -69,8 +73,10 @@ function fakeClient(
       async finalMessage() {
         for (const token of options.tokens) for (const l of listeners) l(token)
         return {
+          model: 'claude-opus-5',
+          usage: { input_tokens: 100, output_tokens: 20 },
           stop_reason: options.stopReason ?? 'end_turn',
-          content: [{ type: 'text', text: options.tokens.join('') }]
+          content: [{ type: 'text', text: options.tokens.join('') }, ...(options.blocks ?? [])]
         }
       }
     }
@@ -80,7 +86,12 @@ function fakeClient(
     messages: {
       parse: vi.fn(async (params: unknown) => {
         parseParams.push(params)
-        return { parsed_output: parsed }
+        return {
+          model: 'claude-opus-5',
+          usage: { input_tokens: 50, output_tokens: 30 },
+          stop_reason: 'end_turn',
+          parsed_output: parsed
+        }
       })
     }
   } as unknown as Anthropic
@@ -138,5 +149,84 @@ describe('Tutor.analyze', () => {
   it('falls back to an empty analysis when nothing parsed', async () => {
     const { client } = fakeClient({ tokens: [] }, null)
     expect(await new Tutor(client).analyze('hi')).toEqual(EMPTY_ANALYSIS)
+  })
+})
+
+describe('Tutor.replyAndAnalyze', () => {
+  const analysis = {
+    errors: [
+      {
+        error_type: 'tone',
+        span: 'ma',
+        correction: '妈 (mā)',
+        hanzi: '妈',
+        explanation: 'First tone.'
+      }
+    ],
+    study_words: [],
+    encouragement: 'Good.'
+  }
+
+  it('streams the reply and reads the analysis from the tool call', async () => {
+    const { client, streamParams } = fakeClient({
+      tokens: ['好', '的。'],
+      stopReason: 'tool_use',
+      blocks: [{ type: 'tool_use', id: 'tu_1', name: REPORT_TOOL, input: analysis }]
+    })
+    const seen: string[] = []
+    const result = await new Tutor(client).replyAndAnalyze(
+      'SYS',
+      [{ role: 'user', content: 'hi' }],
+      (t) => seen.push(t)
+    )
+    expect(seen).toEqual(['好', '的。'])
+    expect(result).toEqual({ reply: '好的。', analysis })
+
+    const params = streamParams[0] as {
+      system: string
+      tools: { name: string; strict: boolean; input_schema: object }[]
+    }
+    expect(params.system.startsWith('SYS')).toBe(true)
+    expect(params.system).toContain(REPORT_TOOL)
+    expect(params.tools).toHaveLength(1)
+    expect(params.tools[0]).toMatchObject({ name: REPORT_TOOL, strict: true })
+    expect(params.tools[0].input_schema).toMatchObject({
+      type: 'object',
+      additionalProperties: false
+    })
+    expect(params.tools[0].input_schema).not.toHaveProperty('$schema')
+  })
+
+  it('returns a null analysis when the tool was not called or sent the wrong shape', async () => {
+    const missing = fakeClient({ tokens: ['好'] })
+    expect(await new Tutor(missing.client).replyAndAnalyze('SYS', [])).toEqual({
+      reply: '好',
+      analysis: null
+    })
+
+    const malformed = fakeClient({
+      tokens: ['好'],
+      blocks: [{ type: 'tool_use', id: 'tu_1', name: REPORT_TOOL, input: { errors: 'nope' } }]
+    })
+    expect((await new Tutor(malformed.client).replyAndAnalyze('SYS', [])).analysis).toBeNull()
+  })
+})
+
+describe('Tutor call records', () => {
+  it('reports model, usage and timing for every call', async () => {
+    const calls: CallRecord[] = []
+    const { client } = fakeClient({ tokens: ['好'] })
+    const tutor = new Tutor(client, { observe: (call) => calls.push(call) })
+    await tutor.reply('SYS', [])
+    await tutor.analyze('hi', '你好')
+    await tutor.replyAndAnalyze('SYS', [])
+    expect(calls.map((c) => c.kind)).toEqual(['reply', 'analysis', 'combined'])
+    expect(calls[0]).toMatchObject({
+      model: 'claude-opus-5',
+      stop_reason: 'end_turn',
+      usage: { input_tokens: 100, output_tokens: 20 }
+    })
+    expect(calls[1].usage).toEqual({ input_tokens: 50, output_tokens: 30 })
+    expect(calls.every((c) => c.ms >= 0)).toBe(true)
   })
 })

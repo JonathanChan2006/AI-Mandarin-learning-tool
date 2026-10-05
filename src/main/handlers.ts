@@ -1,5 +1,8 @@
+import { dirname, join, resolve } from 'path'
+import type { WebContents } from 'electron'
 import type { ChatService } from './core/chat'
 import type { Db } from './core/db'
+import { importLegacyDb } from './core/legacy'
 import { addItem, dueItems, nextDueAt, stats } from './core/items'
 import { listMistakes, weakItems } from './core/mistakes'
 import { gradeItem } from './core/review'
@@ -12,17 +15,42 @@ import { toAppError, verifyApiKey } from './tutorClient'
 import { CHAT_TOKEN_EVENT } from '@shared/channels'
 import { AppError } from '@shared/errors'
 
+export interface FilePickOptions {
+  title: string
+  /** Label for the file type, e.g. "SQLite database". */
+  name: string
+  extensions: string[]
+}
+
+/** Shows a native open-file dialog; resolves null when the user cancels. */
+export type PickFile = (options: FilePickOptions, sender: WebContents) => Promise<string | null>
+
+export interface TypingSupport {
+  info(): Promise<{
+    status: 'enabled' | 'missing' | 'unknown'
+    platform: 'mac' | 'windows' | 'other'
+  }>
+  openSettings(): Promise<void>
+}
+
 export interface HandlerDeps {
   db: Db
   dbPath: string
   chat: ChatService
+  pickFile: PickFile
+  typing: TypingSupport
+}
+
+function backupName(now: Date): string {
+  const stamp = now.toISOString().replace(/[-:]/g, '').replace(/\..*/, '')
+  return `mandarin-before-import-${stamp}.db`
 }
 
 const notYet = (): never => {
   throw new AppError('INTERNAL', 'Not implemented yet')
 }
 
-export function createHandlers({ db, dbPath, chat }: HandlerDeps): Handlers {
+export function createHandlers({ db, dbPath, chat, pickFile, typing }: HandlerDeps): Handlers {
   return {
     'stats:get': () => stats(db),
 
@@ -78,6 +106,24 @@ export function createHandlers({ db, dbPath, chat }: HandlerDeps): Handlers {
 
     'settings:importLegacyKey': ({ deleteFile }) => settings.importLegacyKey(deleteFile),
 
-    'legacy:import': notYet
+    'legacy:import': async ({ replace }, { sender }) => {
+      const path = await pickFile(
+        { title: 'Choose the old mandarin.db', name: 'SQLite database', extensions: ['db'] },
+        sender
+      )
+      if (!path) return null
+      if (resolve(path) === resolve(dbPath)) {
+        throw new AppError(
+          'VALIDATION',
+          "That is this app's own database. Pick the one from the Python version."
+        )
+      }
+      const backupPath = join(dirname(dbPath), backupName(new Date()))
+      return importLegacyDb(db, path, { replace, backupPath })
+    },
+
+    'typing:status': () => typing.info(),
+
+    'typing:openSettings': () => typing.openSettings()
   }
 }

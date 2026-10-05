@@ -1,5 +1,6 @@
 {
   "name": "mandarin-tutor",
+  "productName": "Mandarin Tutor",
   "version": "0.1.0",
   "description": "Mandarin flashcards scheduled with FSRS and an AI tutor that share one mistake log",
   "main": "./out/main/index.js",
@@ -19,7 +20,7 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "e2e": "playwright test"
+    "e2e": "electron-vite build && playwright test"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",

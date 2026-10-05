@@ -113,9 +113,52 @@ export const EMPTY_ANALYSIS: Analysis = { errors: [], study_words: [], encourage
 
 export type ChatMessageParam = Anthropic.Beta.BetaMessageParam
 
-/** Holds the two API passes. The client is injected so tests can fake it. */
+// ---- One call instead of two (experimental; see ChatService `mode`) ----
+
+export const REPORT_TOOL = 'report_analysis'
+
+/** Appended to the tutor's system prompt when one call does both jobs. */
+export const SINGLE_CALL_INSTRUCTIONS = `
+After you have written your reply to the student, call the ${REPORT_TOOL} tool exactly once with your analysis of the student's latest message. The reply itself must still follow every rule above: do not correct the student in the reply, and never mention the tool or the analysis.
+`
+
+const REPORT_TOOL_DESCRIPTION =
+  "Report your analysis of the student's latest message. Do two things:\n\n" +
+  ANALYZER_SYSTEM.slice(ANALYZER_SYSTEM.indexOf('1. errors:'))
+
+function analysisJsonSchema(): Anthropic.Beta.BetaTool.InputSchema {
+  // The API wants the bare schema, without zod's `$schema` dialect marker.
+  const schema = { ...z.toJSONSchema(AnalysisSchema) } as Record<string, unknown>
+  delete schema.$schema
+  return schema as Anthropic.Beta.BetaTool.InputSchema
+}
+
+/** What one API call cost and how long it took; the eval runner records these. */
+export interface CallRecord {
+  kind: 'reply' | 'analysis' | 'combined'
+  model: string
+  stop_reason: string | null
+  /** Wall-clock for the whole call, in milliseconds. */
+  ms: number
+  usage: {
+    input_tokens: number
+    output_tokens: number
+    cache_read_input_tokens?: number | null
+    cache_creation_input_tokens?: number | null
+  }
+}
+
+export interface TutorOptions {
+  /** Called after every completed API call. The app does not use it; the eval does. */
+  observe?: (call: CallRecord) => void
+}
+
+/** Holds the API passes. The client is injected so tests can fake it. */
 export class Tutor {
-  constructor(private readonly client: Anthropic) {}
+  constructor(
+    private readonly client: Anthropic,
+    private readonly options: TutorOptions = {}
+  ) {}
 
   /** The tutor's chat response, streamed token by token to `onToken`. */
   async reply(
@@ -123,6 +166,7 @@ export class Tutor {
     history: ChatMessageParam[],
     onToken?: (text: string) => void
   ): Promise<string> {
+    const started = Date.now()
     const stream = this.client.beta.messages.stream({
       model: MODEL,
       max_tokens: 2048,
@@ -135,13 +179,52 @@ export class Tutor {
     })
     if (onToken) stream.on('text', (delta) => onToken(delta))
     const message = await stream.finalMessage()
+    this.record('reply', message, started)
     if (message.stop_reason === 'refusal') {
       throw new AppError('REFUSED', 'The tutor declined to answer that message. Try rephrasing it.')
     }
-    return message.content
-      .filter((block) => block.type === 'text')
-      .map((block) => block.text)
-      .join('')
+    return textOf(message.content)
+  }
+
+  /**
+   * One call that does both jobs: the reply streams as text, then the model
+   * reports its analysis through a strict tool call. Returns a null analysis
+   * when the tool was not called or its input did not match the schema.
+   */
+  async replyAndAnalyze(
+    system: string,
+    history: ChatMessageParam[],
+    onToken?: (text: string) => void
+  ): Promise<{ reply: string; analysis: Analysis | null }> {
+    const started = Date.now()
+    const stream = this.client.beta.messages.stream({
+      model: MODEL,
+      max_tokens: 4096,
+      system: system + SINGLE_CALL_INSTRUCTIONS,
+      messages: history,
+      tools: [
+        {
+          name: REPORT_TOOL,
+          description: REPORT_TOOL_DESCRIPTION,
+          input_schema: analysisJsonSchema(),
+          strict: true
+        }
+      ],
+      output_config: { effort: 'low' },
+      betas: ['server-side-fallback-2026-07-01'],
+      fallbacks: 'default'
+    })
+    if (onToken) stream.on('text', (delta) => onToken(delta))
+    const message = await stream.finalMessage()
+    this.record('combined', message, started)
+    if (message.stop_reason === 'refusal') {
+      throw new AppError('REFUSED', 'The tutor declined to answer that message. Try rephrasing it.')
+    }
+    const call = message.content.find(
+      (block) => block.type === 'tool_use' && block.name === REPORT_TOOL
+    )
+    const parsed = call && call.type === 'tool_use' ? AnalysisSchema.safeParse(call.input) : null
+    return { reply: textOf(message.content), analysis: parsed?.success ? parsed.data : null }
   }
 
   /** Grade one message and extract new vocabulary. Empty analysis when parsing fails. */
@@ -149,6 +232,7 @@ export class Tutor {
     const content = tutorReply
       ? `Tutor said: ${tutorReply}\n\nStudent said: ${userMessage}`
       : `Student said: ${userMessage}`
+    const started = Date.now()
     const message = await this.client.messages.parse({
       model: MODEL,
       max_tokens: 4096,
@@ -156,6 +240,28 @@ export class Tutor {
       messages: [{ role: 'user', content }],
       output_config: { format: zodOutputFormat(AnalysisSchema) }
     })
+    this.record('analysis', message, started)
     return message.parsed_output ?? EMPTY_ANALYSIS
   }
+
+  private record(
+    kind: CallRecord['kind'],
+    message: { model: string; stop_reason: string | null; usage: CallRecord['usage'] },
+    started: number
+  ): void {
+    this.options.observe?.({
+      kind,
+      model: message.model,
+      stop_reason: message.stop_reason,
+      ms: Date.now() - started,
+      usage: message.usage
+    })
+  }
+}
+
+function textOf(content: readonly { type: string }[]): string {
+  return content
+    .filter((block): block is { type: 'text'; text: string } => block.type === 'text')
+    .map((block) => block.text)
+    .join('')
 }

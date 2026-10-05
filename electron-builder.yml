@@ -5,8 +5,8 @@ directories:
 files:
   - '!**/.vscode/*'
   - '!src/*'
-  - '!{legacy,e2e,tests,data,mandarin,storage,.github,.venv}/**'
-  - '!{*.apkg,*.db,*.py,requirements.txt}'
+  - '!{legacy,e2e,evals,tests,.github,.venv,test-results,playwright-report}/**'
+  - '!{*.apkg,*.db}'
   - '!electron.vite.config.{js,ts,mjs,cjs}'
   - '!{vitest.config.ts,playwright.config.ts}'
   - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,.editorconfig,README.md}'
@@ -31,3 +31,5 @@ nsis:
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
 npmRebuild: false
+# No auto-update server; without this the builder infers one from the git remote.
+publish: null

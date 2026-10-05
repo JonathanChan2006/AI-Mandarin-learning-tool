@@ -8,15 +8,20 @@
     "src/preload/**/*",
     "src/shared/**/*",
     "tests/**/*",
-    "e2e/**/*"
+    "e2e/**/*",
+    "evals/**/*.ts"
   ],
   "compilerOptions": {
     "composite": true,
-    "types": ["electron-vite/node"],
+    "types": [
+      "electron-vite/node"
+    ],
     "resolveJsonModule": true,
     "baseUrl": ".",
     "paths": {
-      "@shared/*": ["src/shared/*"]
+      "@shared/*": [
+        "src/shared/*"
+      ]
     }
   }
 }

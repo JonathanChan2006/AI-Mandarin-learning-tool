@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router'
 import { Button } from '../components/Button'
 import { PinyinText } from '../components/PinyinText'
+import { TypingBanner } from '../components/TypingSetup'
 import { invalidateStudyData, useKnownWords, useSettings } from '../queries'
 import { useChatStore, type NoteTone } from '../store/chatStore'
 import { PINYIN_MODES, usePinyinPrefs, type PinyinMode } from '../store/pinyinPrefs'
@@ -37,6 +38,8 @@ export default function Chat(): React.JSX.Element {
   const [text, setText] = useState('')
   const listRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  // True while an input method is still choosing characters; Enter then picks a word, not "send".
+  const composing = useRef(false)
 
   const hasKey = settings.data?.hasKey ?? false
 
@@ -53,7 +56,7 @@ export default function Chat(): React.JSX.Element {
   const submit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault()
     const value = text.trim()
-    if (!value || pending) return
+    if (!value || pending || composing.current) return
     setText('')
     const sent = await send(value)
     if (sent) void invalidateStudyData(queryClient)
@@ -157,12 +160,20 @@ export default function Chat(): React.JSX.Element {
         </aside>
       </div>
 
+      <TypingBanner />
+
       <form onSubmit={(e) => void submit(e)} className="flex items-center gap-2">
         <input
           ref={inputRef}
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="Type in Chinese or English..."
+          onCompositionStart={() => (composing.current = true)}
+          onCompositionEnd={() => (composing.current = false)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && (e.nativeEvent.isComposing || composing.current))
+              e.preventDefault()
+          }}
           disabled={pending || !sessionId}
           autoFocus
           className="flex-1 rounded-md border border-white/15 bg-surface px-3 py-2 outline-none focus:border-primary disabled:opacity-60"

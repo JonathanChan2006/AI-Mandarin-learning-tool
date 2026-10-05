@@ -1,4 +1,4 @@
-import { act, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import Chat from './Chat'
@@ -109,5 +109,57 @@ describe('Chat', () => {
     await waitFor(() => expect(input).toHaveValue('你好吗'))
     expect(screen.queryByText('你好吗', { selector: 'div' })).not.toBeInTheDocument()
     await act(async () => {})
+  })
+
+  it('does not send while an input method is still choosing characters', async () => {
+    const user = userEvent.setup()
+    const send = vi.fn().mockResolvedValue(
+      ok({
+        turnId: 't',
+        reply: '好！',
+        errors: [],
+        added: [],
+        encouragement: '',
+        analysisFailed: false
+      })
+    )
+    mockApi({
+      'settings:get': vi.fn().mockResolvedValue(settings),
+      'chat:start': vi.fn().mockResolvedValue(ok({ sessionId: 's1', greeting: '你好！' })),
+      'chat:send': send
+    })
+    renderScreen(<Chat />, '/chat')
+    await findBubble('你好！')
+    const input = screen.getByPlaceholderText('Type in Chinese or English...')
+    await user.type(input, 'nihao')
+
+    fireEvent.compositionStart(input)
+    await user.keyboard('{Enter}')
+    expect(send).not.toHaveBeenCalled()
+
+    fireEvent.compositionEnd(input)
+    await user.keyboard('{Enter}')
+    await waitFor(() => expect(send).toHaveBeenCalledTimes(1))
+  })
+
+  it('offers keyboard setup when no Chinese keyboard is turned on', async () => {
+    const user = userEvent.setup()
+    const openSettings = vi.fn().mockResolvedValue(ok(undefined))
+    mockApi({
+      'settings:get': vi.fn().mockResolvedValue(settings),
+      'chat:start': vi.fn().mockResolvedValue(ok({ sessionId: 's1', greeting: '你好！' })),
+      'typing:status': vi.fn().mockResolvedValue(ok({ status: 'missing', platform: 'mac' })),
+      'typing:openSettings': openSettings
+    })
+    renderScreen(<Chat />, '/chat')
+    await findBubble('你好！')
+    expect(await screen.findByText(/No Chinese keyboard is turned on/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Show me how' }))
+    expect(screen.getByText(/Pinyin – Simplified/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Open Keyboard Settings' }))
+    expect(openSettings).toHaveBeenCalledTimes(1)
+
+    await user.click(screen.getByRole('button', { name: 'Not now' }))
+    expect(screen.queryByText(/No Chinese keyboard is turned on/)).not.toBeInTheDocument()
   })
 })

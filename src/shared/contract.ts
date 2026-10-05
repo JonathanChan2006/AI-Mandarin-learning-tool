@@ -203,10 +203,28 @@ export const contract = {
     input: z.object({ deleteFile: z.boolean().default(false) }),
     output: z.void()
   },
+  /** Opens a file dialog for the Python app's database; null when the dialog is cancelled. */
   'legacy:import': {
+    input: z.object({ replace: z.boolean().default(false) }),
+    output: z
+      .object({
+        items: z.number(),
+        reviews: z.number(),
+        mistakes: z.number(),
+        backup: z.string().nullable()
+      })
+      .nullable()
+  },
+  /** Whether the operating system has a Chinese input method turned on. */
+  'typing:status': {
     input: z.void(),
-    output: z.object({ items: z.number(), reviews: z.number(), mistakes: z.number() }).nullable()
-  }
+    output: z.object({
+      status: z.enum(['enabled', 'missing', 'unknown']),
+      platform: z.enum(['mac', 'windows', 'other'])
+    })
+  },
+  /** Opens the system page where a Chinese keyboard is added. */
+  'typing:openSettings': { input: z.void(), output: z.void() }
 } as const satisfies Record<Channel, { input: z.ZodType; output: z.ZodType }>
 
 export type Contract = typeof contract
@@ -223,6 +241,7 @@ export type Mapping = z.infer<typeof MappingSchema>
 export type ApkgSummary = z.infer<typeof ApkgSummarySchema>
 export type PreviewRow = z.infer<typeof PreviewRowSchema>
 export type Settings = z.infer<typeof SettingsSchema>
+export type TypingInfo = z.infer<(typeof contract)['typing:status']['output']>
 export type TurnResult = z.infer<typeof TurnResultSchema>
 export type AnalysisError = z.infer<typeof AnalysisErrorSchema>
 export type ReviewQueue = Output<'review:queue'>

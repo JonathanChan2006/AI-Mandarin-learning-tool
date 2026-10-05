@@ -1,13 +1,14 @@
-import { app, shell, BrowserWindow } from 'electron'
+import { app, dialog, shell, BrowserWindow, type OpenDialogOptions } from 'electron'
 import { mkdirSync } from 'fs'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { ChatService } from './core/chat'
 import { closeDatabase, openDatabase, type Db } from './core/db'
 import { Tutor } from './core/tutor'
-import { createHandlers } from './handlers'
+import { createHandlers, type PickFile } from './handlers'
 import { registerHandlers } from './ipc'
 import { createClient } from './tutorClient'
+import { openKeyboardSettings, typingInfo } from './typing'
 
 // Tests and scratch runs point the app at a throwaway data directory.
 if (process.env.MANDARIN_USER_DATA) {
@@ -20,6 +21,19 @@ function databasePath(): string {
   const dir = app.getPath('userData')
   mkdirSync(dir, { recursive: true })
   return join(dir, 'mandarin.db')
+}
+
+const pickFile: PickFile = async (options, sender) => {
+  const dialogOptions: OpenDialogOptions = {
+    title: options.title,
+    properties: ['openFile'],
+    filters: [{ name: options.name, extensions: options.extensions }]
+  }
+  const parent = BrowserWindow.fromWebContents(sender)
+  const result = parent
+    ? await dialog.showOpenDialog(parent, dialogOptions)
+    : await dialog.showOpenDialog(dialogOptions)
+  return result.canceled || result.filePaths.length === 0 ? null : result.filePaths[0]
 }
 
 function createWindow(): BrowserWindow {
@@ -61,7 +75,10 @@ app.whenReady().then(() => {
   const dbPath = databasePath()
   db = openDatabase(dbPath)
   const chat = new ChatService(db, () => new Tutor(createClient()))
-  registerHandlers(createHandlers({ db, dbPath, chat }), { validateOutput: !app.isPackaged })
+  const typing = { info: () => typingInfo(), openSettings: openKeyboardSettings }
+  registerHandlers(createHandlers({ db, dbPath, chat, pickFile, typing }), {
+    validateOutput: !app.isPackaged
+  })
 
   createWindow()
 

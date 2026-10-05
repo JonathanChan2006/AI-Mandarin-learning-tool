@@ -13,7 +13,11 @@ export async function verifyApiKey(apiKey: string): Promise<void> {
   try {
     await new Anthropic({ apiKey, maxRetries: 0, timeout: 15_000 }).models.list({ limit: 1 })
   } catch (error) {
-    throw toAppError(error)
+    const appError = toAppError(error)
+    if (appError.code === 'AUTH') {
+      throw new AppError('AUTH', 'Anthropic rejected that key. Check that you copied all of it.')
+    }
+    throw appError
   }
 }
 

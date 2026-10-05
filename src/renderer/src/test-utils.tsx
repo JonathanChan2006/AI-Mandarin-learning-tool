@@ -8,6 +8,8 @@ import type { QueueItem, RawApi } from '@shared/contract'
 export function mockApi(overrides: Partial<RawApi>): RawApi {
   const api = {
     onChatToken: vi.fn(() => () => undefined),
+    'typing:status': vi.fn(async () => ok({ status: 'enabled', platform: 'mac' })),
+    'vocab:known': vi.fn(async () => ok([])),
     ...overrides
   } as unknown as RawApi
   Object.defineProperty(window, 'api', { value: api, writable: true, configurable: true })
